@@ -38,10 +38,15 @@ Ou seja: **quando a planilha é atualizada com os dados de um novo mês, basta a
 atualizar) a página do GitHub Pages** — os novos números, gráficos e classificações
 aparecem automaticamente, sem editar nenhum arquivo nem pedir nada ao Claude Design.
 
-A API (`apps-script/Code.gs`) é **somente leitura**: não existe `doPost`, nenhuma função
-grava nas planilhas-fonte, e ela nunca expõe nomes de inspecionados — apenas contagens
-agregadas por Organização Militar (OM), no mesmo nível de agregação que a apresentação já
-usava.
+A API (`apps-script/Code.gs`) é **somente leitura por construção**: não existe `doPost`,
+nenhuma função grava nas planilhas-fonte, e ela nunca expõe nomes de inspecionados —
+apenas contagens agregadas por Organização Militar (OM), no mesmo nível de agregação que
+a apresentação já usava. A autorização do Google concedida ao projeto (escopo
+`https://www.googleapis.com/auth/spreadsheets`) é mais ampla do que o código realmente
+usa — o Apps Script não oferece uma permissão "somente leitura" para `SpreadsheetApp`
+acessar planilhas fora do próprio projeto, só a permissão completa de leitura/escrita.
+Quem decide o que o script faz com essa permissão é o código em `Code.gs` (público, neste
+repositório), que nunca chama nenhum método de escrita.
 
 ### Particularidade dos Atestados de Origem (AO)
 
