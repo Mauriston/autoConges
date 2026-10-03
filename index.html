@@ -182,7 +182,6 @@
   #congesAviso{position:fixed;left:16px;bottom:16px;z-index:9000;background:#FAB932;color:#121C4B;font-family:'Montserrat',sans-serif;font-size:11.5px;font-weight:800;padding:8px 14px;border-radius:10px;box-shadow:0 3px 10px rgba(18,28,75,.18);display:none;max-width:300px;line-height:1.4}
   #congesRefresh{position:fixed;right:14px;bottom:14px;z-index:9000;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#fff;color:#5A627A;font-size:15px;line-height:1;cursor:pointer;box-shadow:0 2px 8px rgba(18,28,75,.12)}
   #congesRefresh:hover{background:#F2F4F8;color:#121C4B}
-  #congesDadosInfo{position:fixed;left:14px;bottom:52px;z-index:9000;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;color:#8A93AC;letter-spacing:.02em;display:none}
 </style>
 <template id="__bundler_thumbnail" data-bg-color="#ffffff">
   <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
@@ -208,7 +207,6 @@
   </div>
 </div>
 <div id="congesAviso"></div>
-<div id="congesDadosInfo"></div>
 <button type="button" id="congesRefresh" title="Atualizar dados agora" onclick="event.stopPropagation();location.reload();">↻</button>
 <script>
   // stubs seguros: evitam erro no script de navegação caso ele rode antes dos
@@ -563,18 +561,6 @@ function congesLerCache(){
     return obj && obj.payload ? obj : null;
   }catch(e){ return null; }
 }
-function congesFormatarData(iso){
-  try{
-    const d = new Date(iso);
-    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
-  }catch(e){ return ''; }
-}
-function congesMostrarInfoDados(quandoIso, deCache){
-  const el = document.getElementById('congesDadosInfo');
-  if(!el) return;
-  el.textContent = (deCache ? 'Última atualização conhecida: ' : 'Dados de: ') + congesFormatarData(quandoIso);
-  el.style.display = 'block';
-}
 function congesMostrarAvisoCache(){
   const el = document.getElementById('congesAviso');
   if(!el) return;
@@ -595,13 +581,11 @@ async function congesCarregarDados(){
   try{
     const payload = await congesBuscarViaJSONP(CONGES_API_URL, 15000);
     try{ localStorage.setItem(CONGES_CACHE_KEY, JSON.stringify({ payload, quando: payload.geradoEm || new Date().toISOString() })); }catch(e){}
-    congesMostrarInfoDados(payload.geradoEm, false);
     return payload;
   }catch(err){
     console.error('CONGES: falha ao buscar dados ao vivo da planilha', err);
     const cache = congesLerCache();
     if(cache){
-      congesMostrarInfoDados(cache.quando, true);
       congesMostrarAvisoCache();
       return cache.payload;
     }
