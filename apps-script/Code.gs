@@ -49,6 +49,12 @@ function idadeDias_(v) {
 }
 function monthKey_(y, m) { return y + '-' + String(m).padStart(2, '0'); }
 function dataValida_(v) { return v instanceof Date && !isNaN(v.getTime()); }
+/** "YYYY-MM" a partir de uma data-only do Sheets. O Sheets guarda uma célula só-data
+ * como meia-noite UTC do dia correspondente — formatar em qualquer fuso negativo
+ * (ex.: America/Recife, UTC-3) "rola" o 1º dia do mês para o dia 30/31 do mês
+ * anterior às 21h, trocando o mês. Formatar sempre em UTC evita esse problema,
+ * qualquer que seja o dia do mês armazenado. */
+function monthKeyFromDate_(date) { return Utilities.formatDate(date, 'Etc/UTC', 'yyyy-MM'); }
 
 /** true se o Atestado de Origem já está concluído (ver LEIA-ME: Status é a fonte
  * quando presente; linhas antigas sem Status explícito são tratadas como
@@ -110,14 +116,22 @@ function buildPayload() {
   });
 
   // ---------------- indicadores (Anexo B) — já calculados em INDICADORES_CPMM ----------------
+  // "Mês de referência" normalmente é uma data (ex.: 01/01/2026, exibida como "janeiro/2026");
+  // aceita também texto "mês/ano" por extenso, caso o formato da coluna mude no futuro.
   const mesRefByKey = {};
   indic.slice(1).forEach(row => {
-    const label = String(row[0] || '').toLowerCase().trim();
-    const parts = label.split('/');
-    if (parts.length !== 2) return;
-    const mi = MES_NOMES_EXT.indexOf(parts[0].trim());
-    if (mi < 0) return;
-    mesRefByKey[monthKey_(parts[1].trim(), mi + 1)] = row;
+    let key = null;
+    if (dataValida_(row[0])) {
+      key = monthKeyFromDate_(row[0]);
+    } else {
+      const label = String(row[0] || '').toLowerCase().trim();
+      const parts = label.split('/');
+      if (parts.length === 2) {
+        const mi = MES_NOMES_EXT.indexOf(parts[0].trim());
+        if (mi >= 0) key = monthKey_(parts[1].trim(), mi + 1);
+      }
+    }
+    if (key) mesRefByKey[key] = row;
   });
 
   const fields = ['conc', 'damp', 'jsd', 'desn', 'ao', 'imr'];
@@ -186,7 +200,7 @@ function buildPayload() {
 
   const apurByKey = {};
   apur.slice(1).forEach(row => {
-    if (dataValida_(row[0])) apurByKey[monthKey_(row[0].getFullYear(), row[0].getMonth() + 1)] = row;
+    if (dataValida_(row[0])) apurByKey[monthKeyFromDate_(row[0])] = row;
   });
 
   const abertos = atestRows.filter(r => !aoConcluido_(r));
@@ -198,7 +212,6 @@ function buildPayload() {
   const AO = { estoque: [], recebidos: [], concluidos: [], idadeMedia: [], idadeMax: [], om: [], pendentes: [], apurado: [] };
 
   AO_KEYS.forEach(key => {
-    const [yy, mm] = key.split('-').map(Number);
     const row = apurByKey[key];
     if (row) {
       AO.estoque.push(num_(row[3]));
@@ -210,8 +223,8 @@ function buildPayload() {
     } else {
       // mês ainda sem apuração formal: estimativa a partir do estoque/fluxo atuais de
       // AtestadosOrigem (mesmo critério que o Presidente da JRS usa ao fechar o mês manualmente).
-      const recebidosMes = atestRows.filter(r => dataValida_(r[1]) && r[1].getFullYear() === yy && (r[1].getMonth() + 1) === mm).length;
-      const concluidosMes = atestRows.filter(r => aoConcluido_(r) && dataValida_(r[7]) && r[7].getFullYear() === yy && (r[7].getMonth() + 1) === mm).length;
+      const recebidosMes = atestRows.filter(r => dataValida_(r[1]) && monthKeyFromDate_(r[1]) === key).length;
+      const concluidosMes = atestRows.filter(r => aoConcluido_(r) && dataValida_(r[7]) && monthKeyFromDate_(r[7]) === key).length;
       AO.estoque.push(estoqueAtualQtd);
       AO.recebidos.push(recebidosMes);
       AO.concluidos.push(concluidosMes);
@@ -220,7 +233,7 @@ function buildPayload() {
       AO.apurado.push(false);
     }
     const omMes = atestRows
-      .filter(r => aoConcluido_(r) && dataValida_(r[7]) && r[7].getFullYear() === yy && (r[7].getMonth() + 1) === mm)
+      .filter(r => aoConcluido_(r) && dataValida_(r[7]) && monthKeyFromDate_(r[7]) === key)
       .map(r => String(r[4] || '').trim())
       .filter(Boolean);
     AO.om.push(omMes);
